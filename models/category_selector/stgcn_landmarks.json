@@ -1,0 +1,34 @@
+{
+  "category": "category_selector",
+  "input": {
+    "shape": [
+      1,
+      2,
+      10,
+      75
+    ],
+    "dtype": "float32",
+    "layout": "batch, x/y channels, frames, joints"
+  },
+  "output": {
+    "shape": [
+      1,
+      5
+    ],
+    "meaning": "class logits"
+  },
+  "label_to_id": {
+    "alphabet": 0,
+    "colors": 1,
+    "family(people)": 2,
+    "greetings": 3,
+    "numbers": 4
+  },
+  "id_to_label": [
+    "alphabet",
+    "colors",
+    "family(people)",
+    "greetings",
+    "numbers"
+  ]
+}
