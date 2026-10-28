@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10172a">
+    <title>Sign Gesture Model Tester</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="hero">
+        <div class="eyebrow"><span class="status-dot"></span> TFLite inference</div>
+        <h1>Sign Gesture<br><span>Model Tester</span></h1>
+        <p>Upload one normalized pose-and-hands landmark capture and see what the trained models predict.</p>
+      </header>
+
+      <section class="panel upload-panel" aria-labelledby="upload-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">One isolated gesture</p>
+            <h2 id="upload-heading">Test a landmark capture</h2>
+          </div>
+          <span class="input-badge">10 frames · 150 features</span>
+        </div>
+
+        <form action="{{ url_for('predict') }}" method="post" enctype="multipart/form-data">
+          <label for="category">Models to run</label>
+          <select id="category" name="category" required>
+            <option value="all" {% if selected_category == "all" %}selected{% endif %}>All available categories</option>
+            {% for category in categories %}
+              <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>
+                {{ category_titles[category] }}{% if not statuses[category] %} — model files missing{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+
+          <label for="landmark-file" class="file-label">Landmark JSON file</label>
+          <input
+            id="landmark-file"
+            name="landmark_file"
+            type="file"
+            accept=".json,application/json"
+            required
+          >
+          <p class="help-text">
+            Expected project format: schema version 1, normalized_landmark_features,
+            10 frames with 150 features each. The upload is processed in memory and is not saved.
+          </p>
+
+          <button type="submit">Run prediction <span aria-hidden="true">→</span></button>
+        </form>
+
+        {% if error %}
+          <div class="notice error" role="alert">
+            <strong>Could not run inference</strong>
+            <p>{{ error }}</p>
+          </div>
+        {% endif %}
+      </section>
+
+      {% if results %}
+        <section class="results-section" aria-labelledby="results-heading">
+          <div class="section-heading results-heading">
+            <div>
+              <p class="eyebrow">Inference complete</p>
+              <h2 id="results-heading">Prediction results</h2>
+            </div>
+            <span class="result-file">{{ filename }}</span>
+          </div>
+          {% if source_label and source_label != "Unknown" %}
+            <p class="source-label">Capture label: <strong>{{ source_label }}</strong></p>
+          {% endif %}
+
+          <div class="results-grid">
+            {% for result in results %}
+              <article class="result-card">
+                <div class="card-topline">
+                  <span class="model-marker">{{ "%02d"|format(loop.index) }}</span>
+                  <h3>{{ result.title }}</h3>
+                </div>
+                <ol class="prediction-list">
+                  {% for prediction in result.predictions %}
+                    <li class="{% if loop.first %}top-prediction{% endif %}">
+                      <span class="prediction-rank">{{ loop.index }}</span>
+                      <span class="prediction-label">{{ prediction.label }}</span>
+                      <span class="confidence">{{ "%.1f"|format(prediction.confidence) }}%</span>
+                    </li>
+                  {% endfor %}
+                </ol>
+              </article>
+            {% endfor %}
+          </div>
+          <p class="disclaimer">
+            Each model predicts within its own label set. Confidence scores are model probabilities;
+            they should not be compared across categories as a combined score.
+          </p>
+        </section>
+      {% endif %}
+
+      <section class="model-status" aria-labelledby="status-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Deployment check</p>
+            <h2 id="status-heading">Model availability</h2>
+          </div>
+          <span class="status-count">
+            {{ statuses.values()|select|list|length }} / {{ categories|length }} ready
+          </span>
+        </div>
+        <div class="status-list">
+          {% for category in categories %}
+            <div class="status-item">
+              <span class="status-name">{{ category_titles[category] }}</span>
+              <span class="status-pill {% if statuses[category] %}ready{% else %}missing{% endif %}">
+                {% if statuses[category] %}Ready{% else %}Files missing{% endif %}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+      <footer>Pose + hands ST-GCN · TFLite runtime</footer>
+    </main>
+  </body>
+</html>
