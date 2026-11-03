@@ -7,11 +7,11 @@ is validated and processed in memory; it is not saved.
 
 ## Add the converted models
 
-Copy the six category folders produced by Colab into `web/models/`. Each folder
+Copy the six category folders produced by Colab into `models/`. Each folder
 must contain the `.tflite` model and the corresponding JSON label map:
 
 ```text
-web/models/
+models/
   alphabet/stgcn_landmarks.tflite
   alphabet/stgcn_landmarks.json
   category_selector/stgcn_landmarks.tflite
@@ -31,23 +31,22 @@ the converter. Do not upload `.pt` checkpoints in place of these TFLite files.
 
 ## Deploy to Render
 
-1. Push the repository, including `render.yaml` and the model files under
-   `web/models/`, to a Git provider connected to Render.
-2. In Render, create a new **Blueprint** from that repository. The blueprint
-   config sets the service root to `web`, installs `requirements.txt`, and
-   starts the site with Gunicorn.
+1. Push the application files and model files under `models/` to a Git provider
+   connected to Render.
+2. In Render, configure the service root as the repository root, install
+   `requirements.txt`, and start the site with
+   `gunicorn app:app --bind 0.0.0.0:$PORT`.
 3. Wait for the build and deploy to finish, then open the service URL.
 4. Visit `/healthz`; the response lists model files that are available and
    categories whose files are missing.
 
-The provided `web/.env` contains only non-secret local defaults. Render uses
-the corresponding `MODEL_DIR` and `MAX_CONTENT_LENGTH` values from `render.yaml`.
-For a different model directory or upload limit, change those environment
-variables in Render.
+The local `.env` file is excluded from Git. Configure `MODEL_DIR` and
+`MAX_CONTENT_LENGTH` as environment variables in Render if you need to change
+their defaults.
 
 ## Run locally
 
-From the `web` directory, install the requirements and start Flask:
+From the repository root, install the requirements and start Flask:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -63,3 +62,34 @@ Upload one UTF-8 JSON capture with `schema_version: 1`,
 `dataset_type: "normalized_landmark_features"`, `feature_count: 150`, and ten
 frames with `sample_index` values 1 through 10 and 150 finite numeric features
 per frame. The model receives float32 input shaped `[1, 2, 10, 75]`.
+
+## JSON prediction API
+
+`POST /predict` also accepts `application/json`, so browser clients can submit
+the normalized landmark object directly. Add `"category": "all"` to run every
+available category, or use one of `alphabet`, `category_selector`, `colors`,
+`family(people)`, `greetings`, or `numbers` to select one model:
+
+```json
+{
+  "schema_version": 1,
+  "dataset_type": "normalized_landmark_features",
+  "label": "Hello",
+  "feature_count": 150,
+  "category": "all",
+  "frames": [
+    { "sample_index": 1, "features": [0, 0] }
+  ]
+}
+```
+
+The abbreviated frame above is illustrative; every request must contain all ten
+frames with exactly 150 finite features each. A successful response is JSON
+with the source label and one top-three prediction list per available model.
+Invalid input returns HTTP 400; unavailable models return HTTP 503. The
+existing multipart upload and HTML response at `/predict` remain supported.
+
+The API allows browser requests from `http://localhost`, `http://127.0.0.1`,
+and those local origins with ports. To allow another frontend origin, set
+`CORS_ALLOWED_ORIGINS` in the deployment environment to a comma-separated
+list of exact origins (including scheme and port where applicable).
