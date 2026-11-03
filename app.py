@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import numpy as np
 from dotenv import load_dotenv
-from flask import Flask, render_template, request
+from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -59,6 +60,33 @@ def configured_model_dir() -> Path:
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = configured_upload_limit()
 MODEL_DIR = configured_model_dir()
+
+
+def is_allowed_cors_origin(origin: str) -> bool:
+    configured_origins = {
+        value.strip()
+        for value in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+        if value.strip()
+    }
+    if origin in configured_origins:
+        return True
+
+    try:
+        parsed = urlsplit(origin)
+    except ValueError:
+        return False
+    return parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin", "")
+    if is_allowed_cors_origin(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.vary.add("Origin")
+    return response
 
 
 @dataclass
@@ -257,9 +285,42 @@ def index():
     )
 
 
-@app.post("/predict")
+@app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
     statuses = available_categories()
+    if request.method == "OPTIONS":
+        return "", 204
+
+    if request.is_json:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "The request body must be a landmark JSON object."}), 400
+
+        payload = payload.copy()
+        selected_category = payload.pop("category", "all")
+        if selected_category != "all" and selected_category not in CATEGORIES:
+            return jsonify({"error": "Select a valid model category."}), 400
+
+        try:
+            landmark_json = json.dumps(payload, allow_nan=False).encode("utf-8")
+            model_input, source_label = parse_landmark_json(landmark_json)
+            categories = (
+                tuple(category for category, ready in statuses.items() if ready)
+                if selected_category == "all"
+                else (selected_category,)
+            )
+            if not categories:
+                raise FileNotFoundError("No model categories are currently available.")
+            results = [run_prediction(category, model_input) for category in categories]
+            return jsonify({
+                "source_label": source_label,
+                "results": results,
+            })
+        except (TypeError, ValueError) as error:
+            return jsonify({"error": str(error)}), 400
+        except (FileNotFoundError, OSError, RuntimeError) as error:
+            return jsonify({"error": str(error)}), 503
+
     uploaded_file = request.files.get("landmark_file")
     selected_category = request.form.get("category", "")
     filename = secure_filename(uploaded_file.filename) if uploaded_file else ""
