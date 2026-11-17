@@ -1,0 +1,56 @@
+{
+  "category": "family(people)",
+  "input": {
+    "shape": [
+      1,
+      2,
+      10,
+      75
+    ],
+    "dtype": "float32",
+    "layout": "batch, x/y channels, frames, joints"
+  },
+  "output": {
+    "shape": [
+      1,
+      16
+    ],
+    "meaning": "class logits"
+  },
+  "label_to_id": {
+    "aunt": 0,
+    "baby": 1,
+    "boy": 2,
+    "brother": 3,
+    "cousin": 4,
+    "family": 5,
+    "father": 6,
+    "girl": 7,
+    "grandfather": 8,
+    "grandmother": 9,
+    "mother": 10,
+    "people": 11,
+    "sister": 12,
+    "student": 13,
+    "teacher": 14,
+    "uncle": 15
+  },
+  "id_to_label": [
+    "aunt",
+    "baby",
+    "boy",
+    "brother",
+    "cousin",
+    "family",
+    "father",
+    "girl",
+    "grandfather",
+    "grandmother",
+    "mother",
+    "people",
+    "sister",
+    "student",
+    "teacher",
+    "uncle"
+  ]
+}
