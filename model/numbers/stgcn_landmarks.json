@@ -1,0 +1,64 @@
+{
+  "category": "numbers",
+  "input": {
+    "shape": [
+      1,
+      2,
+      10,
+      75
+    ],
+    "dtype": "float32",
+    "layout": "batch, x/y channels, frames, joints"
+  },
+  "output": {
+    "shape": [
+      1,
+      20
+    ],
+    "meaning": "class logits"
+  },
+  "label_to_id": {
+    "eight": 0,
+    "eighty": 1,
+    "fifty": 2,
+    "five": 3,
+    "four": 4,
+    "fourty": 5,
+    "nine": 6,
+    "ninety": 7,
+    "numbers": 8,
+    "one": 9,
+    "one hundred": 10,
+    "seven": 11,
+    "seventy": 12,
+    "six": 13,
+    "sixty": 14,
+    "ten": 15,
+    "three": 16,
+    "twenty": 17,
+    "two": 18,
+    "zero": 19
+  },
+  "id_to_label": [
+    "eight",
+    "eighty",
+    "fifty",
+    "five",
+    "four",
+    "fourty",
+    "nine",
+    "ninety",
+    "numbers",
+    "one",
+    "one hundred",
+    "seven",
+    "seventy",
+    "six",
+    "sixty",
+    "ten",
+    "three",
+    "twenty",
+    "two",
+    "zero"
+  ]
+}
