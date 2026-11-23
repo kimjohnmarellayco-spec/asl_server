@@ -29,7 +29,9 @@ This only changes the preview; captured landmarks and predictions are unchanged.
 The live tester captures 10 frames over 2 seconds. It requires a detected hand
 and visible nose and shoulders in at least 6 frames, normalizes all 33 pose
 points and 21 points for each hand, then posts the landmark JSON to `POST /predict`.
-Select one category or all available categories before starting.
+The server keeps the full 150-feature capture for the legacy category-selector
+model and selects the 11 trained pose landmarks plus both hands for the newer
+53-joint category models.
 
 ## Landmark input format
 
@@ -43,16 +45,18 @@ Upload one UTF-8 JSON capture with:
 - `frames`: exactly 10 frames with `sample_index` values 1 through 10 and 150
   finite numeric features per frame
 
-The features are reshaped to float32 model input `[1, 2, 10, 75]` (batch,
-x/y channels, frames, landmarks). This is the schema used by the included
-`live json landmarks` captures and matches the included model metadata.
+The server reshapes the full capture to float32 input `[1, 2, 10, 75]` (batch,
+x/y channels, frames, landmarks). For 53-joint categories, it selects the
+trained pose landmarks and hands to produce `[1, 2, 10, 53]`.
 
 ## Models
 
 Each category folder under `models/` contains `stgcn_landmarks.tflite` and
-`stgcn_landmarks.json`. The JSON label map is used to turn model scores into
-predictions. The app checks the model input shape and output class count before
-inference.
+`stgcn_landmarks.json`. `alphabet`, `colors`, `family(people)`, `greetings`,
+and `numbers` use the new 53-joint models; `category_selector` intentionally
+remains on its 75-joint model. The JSON label map is used to turn model scores
+into predictions. The app checks each model's input shape and output class
+count before inference.
 
 ## HTTP API
 

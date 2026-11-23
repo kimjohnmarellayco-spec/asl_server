@@ -36,9 +36,17 @@ CATEGORY_TITLES = {
     "numbers": "Numbers",
 }
 POSE_LANDMARK_INDICES = tuple(range(33))
+MODEL_POSE_LANDMARK_INDICES = (0, 2, 5, 9, 10, 11, 12, 13, 14, 15, 16)
 HAND_LANDMARK_INDICES = tuple(range(21))
-JOINT_COUNT = len(POSE_LANDMARK_INDICES) + 2 * len(HAND_LANDMARK_INDICES)
-FEATURE_COUNT = JOINT_COUNT * 2
+FULL_JOINT_COUNT = len(POSE_LANDMARK_INDICES) + 2 * len(HAND_LANDMARK_INDICES)
+FEATURE_COUNT = FULL_JOINT_COUNT * 2
+FULL_INPUT_SHAPE = (1, 2, 10, FULL_JOINT_COUNT)
+SELECTED_JOINT_INDICES = MODEL_POSE_LANDMARK_INDICES + tuple(
+    range(len(POSE_LANDMARK_INDICES), FULL_JOINT_COUNT)
+)
+SELECTED_JOINT_COUNT = len(SELECTED_JOINT_INDICES)
+SELECTED_INPUT_SHAPE = (1, 2, 10, SELECTED_JOINT_COUNT)
+SUPPORTED_INPUT_SHAPES = (FULL_INPUT_SHAPE, SELECTED_INPUT_SHAPE)
 FEATURE_LAYOUT = [
     name
     for index in POSE_LANDMARK_INDICES
@@ -49,7 +57,16 @@ FEATURE_LAYOUT = [
     for index in HAND_LANDMARK_INDICES
     for name in (f"hand_{hand}_{index}_x", f"hand_{hand}_{index}_y")
 ]
-INPUT_SHAPE = (1, 2, 10, JOINT_COUNT)
+MODEL_FEATURE_LAYOUT = [
+    name
+    for index in MODEL_POSE_LANDMARK_INDICES
+    for name in (f"pose_1_{index}_x", f"pose_1_{index}_y")
+] + [
+    name
+    for hand in (1, 2)
+    for index in HAND_LANDMARK_INDICES
+    for name in (f"hand_{hand}_{index}_x", f"hand_{hand}_{index}_y")
+]
 DEFAULT_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 
 
@@ -109,6 +126,7 @@ class ModelRuntime:
     input_detail: dict[str, Any]
     output_detail: dict[str, Any]
     label_to_id: dict[str, int]
+    input_shape: tuple[int, ...]
     lock: threading.Lock
 
 
@@ -163,6 +181,38 @@ def load_model(category: str) -> ModelRuntime:
     except json.JSONDecodeError as error:
         raise ValueError(f"Invalid JSON in {metadata_path.name}: {error.msg}") from error
     label_to_id = validate_label_mapping(metadata, metadata_path)
+    input_metadata = metadata.get("input")
+    if not isinstance(input_metadata, dict):
+        raise ValueError(f"Missing input metadata in {metadata_path.name}.")
+    try:
+        metadata_input_shape = tuple(
+            int(dimension) for dimension in input_metadata["shape"]
+        )
+    except (KeyError, TypeError, ValueError, OverflowError) as error:
+        raise ValueError(f"Invalid input shape in {metadata_path.name}.") from error
+    if metadata_input_shape not in SUPPORTED_INPUT_SHAPES:
+        raise ValueError(
+            f"Unsupported input shape in {metadata_path.name}: {metadata_input_shape}."
+        )
+    expected_feature_count = (
+        FEATURE_COUNT
+        if metadata_input_shape == FULL_INPUT_SHAPE
+        else SELECTED_JOINT_COUNT * 2
+    )
+    expected_feature_layout = (
+        FEATURE_LAYOUT
+        if metadata_input_shape == FULL_INPUT_SHAPE
+        else MODEL_FEATURE_LAYOUT
+    )
+    if (
+        input_metadata.get("feature_count", expected_feature_count)
+        != expected_feature_count
+        or input_metadata.get("feature_layout", expected_feature_layout)
+        != expected_feature_layout
+    ):
+        raise ValueError(
+            f"Input feature metadata does not match the model shape in {metadata_path.name}."
+        )
 
     try:
         from ai_edge_litert.interpreter import Interpreter
@@ -180,10 +230,11 @@ def load_model(category: str) -> ModelRuntime:
 
     input_detail = input_details[0]
     output_detail = output_details[0]
-    if tuple(int(dimension) for dimension in input_detail["shape"]) != INPUT_SHAPE:
+    input_shape = tuple(int(dimension) for dimension in input_detail["shape"])
+    if input_shape != metadata_input_shape:
         raise ValueError(
             f"Unexpected input shape for {model_path.name}: "
-            f"{input_detail['shape']}; expected {INPUT_SHAPE}."
+            f"{input_detail['shape']}; metadata declares {metadata_input_shape}."
         )
     if np.dtype(input_detail["dtype"]) != np.dtype(np.float32):
         raise ValueError(f"{model_path.name} must accept float32 input.")
@@ -196,6 +247,7 @@ def load_model(category: str) -> ModelRuntime:
         input_detail=input_detail,
         output_detail=output_detail,
         label_to_id=label_to_id,
+        input_shape=input_shape,
         lock=threading.Lock(),
     )
 
@@ -246,15 +298,28 @@ def parse_landmark_json(raw: bytes) -> tuple[np.ndarray, str]:
     label = data.get("label")
     if not isinstance(label, str) or not label.strip():
         label = "Unknown"
-    model_input = features.reshape(1, 10, JOINT_COUNT, 2).transpose(0, 3, 1, 2).copy()
+    model_input = (
+        features.reshape(1, 10, FULL_JOINT_COUNT, 2)
+        .transpose(0, 3, 1, 2)
+        .copy()
+    )
     return model_input, label.strip()
 
 
 def run_prediction(category: str, model_input: np.ndarray) -> dict[str, Any]:
     runtime = load_model(category)
+    if runtime.input_shape == FULL_INPUT_SHAPE:
+        category_input = model_input
+    elif runtime.input_shape == SELECTED_INPUT_SHAPE:
+        category_input = model_input[..., SELECTED_JOINT_INDICES]
+    else:
+        raise ValueError(
+            f"The {category} model has an unsupported input shape {runtime.input_shape}."
+        )
     with runtime.lock:
         runtime.interpreter.set_tensor(
-            runtime.input_detail["index"], model_input.astype(np.float32, copy=False)
+            runtime.input_detail["index"],
+            category_input.astype(np.float32, copy=False),
         )
         runtime.interpreter.invoke()
         logits = np.asarray(
