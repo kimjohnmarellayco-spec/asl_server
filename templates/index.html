@@ -27,7 +27,7 @@
 
         <div class="live-layout">
           <div class="preview-column">
-            <div class="camera-stage" id="camera-stage">
+            <div class="camera-stage is-mirrored" id="camera-stage">
               <video id="live-video" playsinline muted></video>
               <canvas id="live-overlay" aria-hidden="true"></canvas>
               <div id="camera-empty" class="camera-empty">
@@ -35,6 +35,10 @@
                 <span>Open your camera to see pose and hand landmarks.</span>
               </div>
             </div>
+            <label class="mirror-toggle" for="mirror-preview">
+              <input id="mirror-preview" type="checkbox" checked>
+              Mirror preview
+            </label>
             <div class="live-stats" aria-label="Live detection status">
               <div><span>Hands</span><strong id="hand-count">0</strong></div>
               <div><span>Pose</span><strong id="pose-count">0</strong></div>

@@ -13,6 +13,7 @@ import {
   const categorySelect = document.getElementById("category");
   const cameraStage = document.getElementById("camera-stage");
   const cameraEmpty = document.getElementById("camera-empty");
+  const mirrorPreview = document.getElementById("mirror-preview");
   const status = document.getElementById("camera-status");
   const handCount = document.getElementById("hand-count");
   const poseCount = document.getElementById("pose-count");
@@ -52,6 +53,10 @@ import {
   function setStatus(message, isError = false) {
     status.textContent = message;
     status.dataset.state = isError ? "error" : "";
+  }
+
+  function updateMirrorPreview() {
+    cameraStage.classList.toggle("is-mirrored", mirrorPreview.checked);
   }
 
   function selectedModelIsReady() {
@@ -246,6 +251,8 @@ import {
     setStatus("Camera closed.");
   });
 
+  mirrorPreview.addEventListener("change", updateMirrorPreview);
+
   categorySelect.addEventListener("change", () => {
     updateControls();
     if (handLandmarker && poseLandmarker && selectedModelIsReady()) {
@@ -438,5 +445,6 @@ import {
   });
 
   window.addEventListener("pagehide", stopCamera);
+  updateMirrorPreview();
   loadLandmarkModels();
 })();

@@ -23,6 +23,9 @@ set `PORT`. Set `MODEL_DIR` to use model files outside `models`; relative paths
 are resolved from this directory. `MAX_CONTENT_LENGTH` controls the upload
 limit in bytes.
 
+Use the **Mirror preview** checkbox to flip the camera display horizontally.
+This only changes the preview; captured landmarks and predictions are unchanged.
+
 The live tester captures 10 frames over 2 seconds. It requires a detected hand
 and visible nose and shoulders in at least 6 frames, normalizes all 33 pose
 points and 21 points for each hand, then posts the landmark JSON to `POST /predict`.
