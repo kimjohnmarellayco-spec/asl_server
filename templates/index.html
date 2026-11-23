@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#10172a">
-    <title>Sign Gesture Model Tester</title>
+    <title>Landmarks-Only Sign Gesture Tester</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
     <main class="page-shell">
       <header class="hero">
         <div class="eyebrow"><span class="status-dot"></span> TFLite inference</div>
-        <h1>Sign Gesture<br><span>Model Tester</span></h1>
-        <p>Upload one normalized pose-and-hands landmark capture and see what the trained models predict.</p>
+        <h1>Landmarks-Only<br><span>Model Tester</span></h1>
+        <p>Upload a normalized pose-and-hands landmark capture. This server runs landmark models only; it does not accept images or video.</p>
       </header>
 
       <section class="panel upload-panel" aria-labelledby="upload-heading">
@@ -44,8 +44,7 @@
             required
           >
           <p class="help-text">
-            Expected project format: schema version 1, normalized_landmark_features,
-            10 frames with 150 features each. The upload is processed in memory and is not saved.
+            Schema v1: 10 frames with 150 features each (all 33 pose landmarks and all 21 landmarks for each hand). The upload is processed in memory and is not saved.
           </p>
 
           <button type="submit">Run prediction <span aria-hidden="true">→</span></button>
@@ -119,7 +118,7 @@
           {% endfor %}
         </div>
       </section>
-      <footer>Pose + hands ST-GCN · TFLite runtime</footer>
+      <footer>Full pose + hands ST-GCN · TFLite runtime · Landmark JSON only</footer>
     </main>
   </body>
 </html>

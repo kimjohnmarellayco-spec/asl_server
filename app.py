@@ -35,7 +35,21 @@ CATEGORY_TITLES = {
     "greetings": "Greetings",
     "numbers": "Numbers",
 }
-INPUT_SHAPE = (1, 2, 10, 75)
+POSE_LANDMARK_INDICES = tuple(range(33))
+HAND_LANDMARK_INDICES = tuple(range(21))
+JOINT_COUNT = len(POSE_LANDMARK_INDICES) + 2 * len(HAND_LANDMARK_INDICES)
+FEATURE_COUNT = JOINT_COUNT * 2
+FEATURE_LAYOUT = [
+    name
+    for index in POSE_LANDMARK_INDICES
+    for name in (f"pose_1_{index}_x", f"pose_1_{index}_y")
+] + [
+    name
+    for hand in (1, 2)
+    for index in HAND_LANDMARK_INDICES
+    for name in (f"hand_{hand}_{index}_x", f"hand_{hand}_{index}_y")
+]
+INPUT_SHAPE = (1, 2, 10, JOINT_COUNT)
 DEFAULT_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 
 
@@ -154,7 +168,7 @@ def load_model(category: str) -> ModelRuntime:
         from ai_edge_litert.interpreter import Interpreter
     except ImportError as error:
         raise RuntimeError(
-            "LiteRT runtime is not installed. Install web/requirements.txt."
+            "LiteRT runtime is not installed. Install requirements.txt from this app directory."
         ) from error
 
     interpreter = Interpreter(model_path=str(model_path))
@@ -200,8 +214,10 @@ def parse_landmark_json(raw: bytes) -> tuple[np.ndarray, str]:
         raise ValueError(
             "Expected dataset_type 'normalized_landmark_features'."
         )
-    if data.get("feature_count") != 150:
-        raise ValueError("Expected feature_count 150.")
+    if data.get("feature_count") != FEATURE_COUNT:
+        raise ValueError(f"Expected feature_count {FEATURE_COUNT}.")
+    if data.get("feature_layout") != FEATURE_LAYOUT:
+        raise ValueError("Unexpected full-pose/full-hand feature_layout.")
 
     frames = data.get("frames")
     if not isinstance(frames, list) or len(frames) != 10:
@@ -220,9 +236,9 @@ def parse_landmark_json(raw: bytes) -> tuple[np.ndarray, str]:
 
     if sample_indices != list(range(1, 11)):
         raise ValueError("Frame sample_index values must be 1 through 10.")
-    if features.shape != (10, 150):
+    if features.shape != (10, FEATURE_COUNT):
         raise ValueError(
-            f"Expected features shaped (10, 150), received {features.shape}."
+            f"Expected features shaped (10, {FEATURE_COUNT}), received {features.shape}."
         )
     if not np.isfinite(features).all():
         raise ValueError("Landmark features contain NaN or infinite values.")
@@ -230,7 +246,7 @@ def parse_landmark_json(raw: bytes) -> tuple[np.ndarray, str]:
     label = data.get("label")
     if not isinstance(label, str) or not label.strip():
         label = "Unknown"
-    model_input = features.reshape(1, 10, 75, 2).transpose(0, 3, 1, 2).copy()
+    model_input = features.reshape(1, 10, JOINT_COUNT, 2).transpose(0, 3, 1, 2).copy()
     return model_input, label.strip()
 
 
