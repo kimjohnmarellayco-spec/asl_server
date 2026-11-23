@@ -1,6 +1,6 @@
 {
-  "category": "family(people)",
-  "source_checkpoint": "/content/drive/MyDrive/categorized model/family(people)/stgcn_landmarks.pt",
+  "category": "landmarks_only_categories",
+  "source_checkpoint": "/content/drive/MyDrive/categorized model/landmarks_only_categories/stgcn_landmarks.pt",
   "architecture": "dual_stream_hand_body",
   "input": {
     "shape": [
@@ -124,38 +124,22 @@
   "output": {
     "shape": [
       1,
-      13
+      5
     ],
     "meaning": "class logits"
   },
   "label_to_id": {
-    "aunt": 0,
-    "baby": 1,
-    "brother": 2,
-    "cousin": 3,
-    "family": 4,
-    "father": 5,
-    "grandfather": 6,
-    "grandmother": 7,
-    "mother": 8,
-    "sister": 9,
-    "student": 10,
-    "teacher": 11,
-    "uncle": 12
+    "alphabet": 0,
+    "colors": 1,
+    "greetings": 2,
+    "numbers": 3,
+    "people": 4
   },
   "id_to_label": [
-    "aunt",
-    "baby",
-    "brother",
-    "cousin",
-    "family",
-    "father",
-    "grandfather",
-    "grandmother",
-    "mother",
-    "sister",
-    "student",
-    "teacher",
-    "uncle"
+    "alphabet",
+    "colors",
+    "greetings",
+    "numbers",
+    "people"
   ]
 }
