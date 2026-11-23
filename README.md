@@ -1,8 +1,11 @@
-# Landmarks-only inference web app
+# Landmarks-only live inference web app
 
 This Flask app runs the categorized hand/body-pose ST-GCN TFLite models using
-landmark JSON as input. It does not accept or process images or videos. Uploads
-are validated and processed in memory; they are not saved.
+normalized landmark JSON as input. The browser can capture a 10-frame gesture
+from the camera, detect pose and hands locally with MediaPipe, and send only
+landmark coordinates to this server for model inference. Camera video is not
+uploaded or saved. Existing landmark JSON files can also be uploaded; those
+uploads are validated and processed in memory and are not saved.
 
 ## Run locally
 
@@ -13,9 +16,17 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://localhost:10000`. To change the port, set `PORT`. Set `MODEL_DIR`
-to use model files outside `models`; relative paths are resolved from this
-directory. `MAX_CONTENT_LENGTH` controls the upload limit in bytes.
+Open `http://localhost:10000`. Allow camera access when prompted. Camera access
+requires HTTPS or localhost, and the browser must be able to load MediaPipe
+from jsDelivr and its task models from Google Cloud Storage. To change the port,
+set `PORT`. Set `MODEL_DIR` to use model files outside `models`; relative paths
+are resolved from this directory. `MAX_CONTENT_LENGTH` controls the upload
+limit in bytes.
+
+The live tester captures 10 frames over 2 seconds. It requires a detected hand
+and visible nose and shoulders in at least 6 frames, normalizes all 33 pose
+points and 21 points for each hand, then posts the landmark JSON to `POST /predict`.
+Select one category or all available categories before starting.
 
 ## Landmark input format
 

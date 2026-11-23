@@ -4,73 +4,107 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#10172a">
-    <title>Landmarks-Only Sign Gesture Tester</title>
+    <title>Landmarks-Only Live Model Tester</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script type="module" src="{{ url_for('static', filename='live_tester.js') }}"></script>
   </head>
   <body>
     <main class="page-shell">
       <header class="hero">
         <div class="eyebrow"><span class="status-dot"></span> TFLite inference</div>
-        <h1>Landmarks-Only<br><span>Model Tester</span></h1>
-        <p>Upload a normalized pose-and-hands landmark capture. This server runs landmark models only; it does not accept images or video.</p>
+        <h1>Landmarks-Only<br><span>Live Model Tester</span></h1>
+        <p>Use your camera to capture a 10-frame pose-and-hands sequence and test it with the selected landmark model.</p>
       </header>
 
-      <section class="panel upload-panel" aria-labelledby="upload-heading">
+      <section class="live-panel" aria-labelledby="camera-heading">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">One isolated gesture</p>
-            <h2 id="upload-heading">Test a landmark capture</h2>
+            <p class="eyebrow">Live camera test</p>
+            <h2 id="camera-heading">Test a gesture</h2>
           </div>
           <span class="input-badge">10 frames · 150 features</span>
         </div>
 
-        <form action="{{ url_for('predict') }}" method="post" enctype="multipart/form-data">
-          <label for="category">Models to run</label>
-          <select id="category" name="category" required>
-            <option value="all" {% if selected_category == "all" %}selected{% endif %}>All available categories</option>
-            {% for category in categories %}
-              <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>
-                {{ category_titles[category] }}{% if not statuses[category] %} — model files missing{% endif %}
-              </option>
-            {% endfor %}
-          </select>
-
-          <label for="landmark-file" class="file-label">Landmark JSON file</label>
-          <input
-            id="landmark-file"
-            name="landmark_file"
-            type="file"
-            accept=".json,application/json"
-            required
-          >
-          <p class="help-text">
-            Schema v1: 10 frames with 150 features each (all 33 pose landmarks and all 21 landmarks for each hand). The upload is processed in memory and is not saved.
-          </p>
-
-          <button type="submit">Run prediction <span aria-hidden="true">→</span></button>
-        </form>
-
-        {% if error %}
-          <div class="notice error" role="alert">
-            <strong>Could not run inference</strong>
-            <p>{{ error }}</p>
+        <div class="live-layout">
+          <div class="preview-column">
+            <div class="camera-stage" id="camera-stage">
+              <video id="live-video" playsinline muted></video>
+              <canvas id="live-overlay" aria-hidden="true"></canvas>
+              <div id="camera-empty" class="camera-empty">
+                <strong>Camera preview</strong>
+                <span>Open your camera to see pose and hand landmarks.</span>
+              </div>
+            </div>
+            <div class="live-stats" aria-label="Live detection status">
+              <div><span>Hands</span><strong id="hand-count">0</strong></div>
+              <div><span>Pose</span><strong id="pose-count">0</strong></div>
+              <div><span>Capture</span><strong id="frame-count">0 / 10</strong></div>
+            </div>
           </div>
-        {% endif %}
+
+          <div class="live-controls">
+            <label for="category">Model category</label>
+            <select id="category" name="category">
+              <option value="all" {% if statuses.values()|select|list|length == 0 %}disabled{% endif %}>All available categories</option>
+              {% for category in categories %}
+                <option
+                  value="{{ category }}"
+                  data-ready="{{ 'true' if statuses[category] else 'false' }}"
+                  {% if not statuses[category] %}disabled{% endif %}
+                >
+                  {{ category_titles[category] }}{% if not statuses[category] %} — model files missing{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+
+            <div class="capture-progress" role="progressbar" aria-label="Camera capture progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="capture-progress-fill"></div>
+            </div>
+            <p id="camera-status" class="camera-status" role="status" aria-live="polite">Loading hand and pose detection models...</p>
+            <div class="camera-buttons">
+              <button id="open-camera" type="button" disabled>Open camera</button>
+              <button id="test-gesture" type="button" disabled>Test 10-frame gesture</button>
+              <button id="close-camera" class="secondary-button" type="button" disabled>Close camera</button>
+            </div>
+            <p class="help-text">Keep your face, shoulders, and signing hand in view. Camera access requires HTTPS or localhost. Video stays in your browser; only normalized landmark coordinates are sent to this server.</p>
+          </div>
+        </div>
       </section>
 
+      <section id="live-results" class="results-section live-results" aria-labelledby="live-results-heading" hidden>
+        <div class="section-heading results-heading">
+          <div>
+            <p class="eyebrow">Inference complete</p>
+            <h2 id="live-results-heading">Prediction results</h2>
+          </div>
+          <span id="result-source" class="result-file"></span>
+        </div>
+        <div id="live-results-grid" class="results-grid"></div>
+        <p class="disclaimer">
+          Each model predicts within its own label set. Confidence scores are model probabilities;
+          they should not be compared across categories as a combined score.
+        </p>
+      </section>
+
+      {% if error %}
+        <div class="notice error" role="alert">
+          <strong>Could not run inference</strong>
+          <p>{{ error }}</p>
+        </div>
+      {% endif %}
+
       {% if results %}
-        <section class="results-section" aria-labelledby="results-heading">
+        <section class="results-section" aria-labelledby="upload-results-heading">
           <div class="section-heading results-heading">
             <div>
               <p class="eyebrow">Inference complete</p>
-              <h2 id="results-heading">Prediction results</h2>
+              <h2 id="upload-results-heading">Upload prediction results</h2>
             </div>
             <span class="result-file">{{ filename }}</span>
           </div>
           {% if source_label and source_label != "Unknown" %}
             <p class="source-label">Capture label: <strong>{{ source_label }}</strong></p>
           {% endif %}
-
           <div class="results-grid">
             {% for result in results %}
               <article class="result-card">
@@ -90,12 +124,27 @@
               </article>
             {% endfor %}
           </div>
-          <p class="disclaimer">
-            Each model predicts within its own label set. Confidence scores are model probabilities;
-            they should not be compared across categories as a combined score.
-          </p>
         </section>
       {% endif %}
+
+      <details class="upload-panel">
+        <summary>Or test an existing landmark JSON file</summary>
+        <form action="{{ url_for('predict') }}" method="post" enctype="multipart/form-data">
+          <label for="upload-category">Models to run</label>
+          <select id="upload-category" name="category" required>
+            <option value="all" {% if selected_category == "all" %}selected{% endif %}>All available categories</option>
+            {% for category in categories %}
+              <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>
+                {{ category_titles[category] }}{% if not statuses[category] %} — model files missing{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          <label for="landmark-file" class="file-label">Landmark JSON file</label>
+          <input id="landmark-file" name="landmark_file" type="file" accept=".json,application/json" required>
+          <p class="help-text">Schema v1: 10 frames with 150 features each. The upload is processed in memory and is not saved.</p>
+          <button type="submit">Run prediction <span aria-hidden="true">→</span></button>
+        </form>
+      </details>
 
       <section class="model-status" aria-labelledby="status-heading">
         <div class="section-heading">
@@ -118,7 +167,7 @@
           {% endfor %}
         </div>
       </section>
-      <footer>Full pose + hands ST-GCN · TFLite runtime · Landmark JSON only</footer>
+      <footer>Full pose + hands ST-GCN · TFLite runtime · Camera inference uses landmarks only</footer>
     </main>
   </body>
 </html>
