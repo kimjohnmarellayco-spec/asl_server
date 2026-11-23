@@ -94,12 +94,15 @@ MODEL_DIR = configured_model_dir()
 
 
 def is_allowed_cors_origin(origin: str) -> bool:
-    configured_origins = {
-        value.strip()
-        for value in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
-        if value.strip()
+    allowed_origins = {
+        "https://learnfsl.freedev.app",
+        *(
+            value.strip()
+            for value in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+            if value.strip()
+        ),
     }
-    if origin in configured_origins:
+    if origin in allowed_origins:
         return True
 
     try:
